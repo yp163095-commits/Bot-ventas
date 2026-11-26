@@ -2,6 +2,7 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLat
 const pino = require('pino')
 
 const MI_NUMERO = '5217321134837'
+let codigoPedido = false
 
 async function start() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info')
@@ -18,28 +19,34 @@ async function start() {
 
     sock.ev.on('creds.update', saveCreds)
 
-    // Si no esta vinculado, pide codigo
-    if (!sock.authState.creds.registered) {
-        setTimeout(async () => {
-            try {
-                const code = await sock.requestPairingCode(MI_NUMERO)
-                console.log('======================================')
-                console.log('TU CODIGO PARA VINCULAR ES:')
-                console.log(code)
-                console.log('METELO TODO PEGADO SIN GUION')
-                console.log('======================================')
-            } catch (e) {
-                console.log('Error pidiendo codigo:', e.message)
-            }
-        }, 5000)
-    }
-
-    sock.ev.on('connection.update', (update) => {
+    sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect } = update
+
+        // AQUI es donde ya se pide el codigo, cuando ya esta conectando
+        if (!sock.authState.creds.registered && !codigoPedido) {
+            codigoPedido = true
+            setTimeout(async () => {
+                try {
+                    const code = await sock.requestPairingCode(MI_NUMERO)
+                    console.log('======================================')
+                    console.log('CODIGO DE 8:', code)
+                    console.log('LARGO:', code.length)
+                    console.log('METELO TODO PEGADO SIN GUION')
+                    console.log('======================================')
+                } catch (e) {
+                    console.log('Error pidiendo codigo:', e.message)
+                    codigoPedido = false
+                }
+            }, 3000)
+        }
+
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut
             console.log('Conexion cerrada, reconectando:', shouldReconnect)
-            if (shouldReconnect) start()
+            if (shouldReconnect) {
+                codigoPedido = false
+                start()
+            }
         } else if (connection === 'open') {
             console.log('✅ BOT CONECTADO CON EXITO')
         }
@@ -50,23 +57,18 @@ async function start() {
         if (!m.message || m.key.fromMe) return
         const from = m.key.remoteJid
         const texto = (m.message.conversation || m.message.extendedTextMessage?.text || '').toLowerCase().trim()
-
-        console.log('Mensaje de', from, ':', texto)
-
         let respuesta = ''
-
         if (texto === 'hola' || texto === 'menu' || texto === 'inicio') {
             respuesta = `👋 Hola, bienvenido a Bot Ventas\n\n1️⃣ Ver productos\n2️⃣ Precios\n3️⃣ Hablar con vendedor\n\nEscribe el numero de la opcion`
         } else if (texto === '1') {
-            respuesta = `📦 *PRODUCTOS:*\n\n- Producto 1\n- Producto 2\n- Producto 3\n\nEscribe *2* para ver precios`
+            respuesta = `📦 *PRODUCTOS:*\n- Producto 1\n- Producto 2\n- Producto 3`
         } else if (texto === '2') {
-            respuesta = `💲 *PRECIOS:*\n\n- Producto 1: $100\n- Producto 2: $200\n- Producto 3: $300`
+            respuesta = `💲 *PRECIOS:*\n- Producto 1: $100\n- Producto 2: $200`
         } else if (texto === '3') {
-            respuesta = `👨‍💼 Te paso con un vendedor en un momento, gracias por esperar.`
+            respuesta = `👨‍💼 Te paso con un vendedor en un momento.`
         } else {
             respuesta = `No te entendi 😅 escribe *hola* para ver el menu`
         }
-
         await sock.sendMessage(from, { text: respuesta })
     })
 }
