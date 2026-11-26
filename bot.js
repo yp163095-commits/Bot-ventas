@@ -13,7 +13,7 @@ app.listen(PORT, () => {
   console.log(`Servidor en puerto ${PORT}`);
 });
 
-const MI_NUMERO = '5217321134837';
+const MI_NUMERO = '527321134837';
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
