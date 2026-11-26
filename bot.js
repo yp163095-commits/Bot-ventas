@@ -16,7 +16,8 @@ app.listen(PORT, () => {
 const MI_NUMERO = '527321134837';
 
 async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState('auth_info');
+  // CAMBIE LA CARPETA A auth_info2 PARA QUE EMPIECE LIMPIO
+  const { state, saveCreds } = await useMultiFileAuthState('auth_info2');
   
   const sock = makeWASocket({
     auth: state,
